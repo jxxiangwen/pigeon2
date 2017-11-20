@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<project>
+	<parent>
+		<artifactId>pigeon-extensions</artifactId>
+		<groupId>com.dianping</groupId>
+		<version>3.0.0</version>
+	</parent>
+	<version>3.0.0</version>
+	<modelVersion>4.0.0</modelVersion>
+	<name>pigeon-config-lion</name>
+	<groupId>com.dianping</groupId>
+	<artifactId>pigeon-config-lion</artifactId>
+	<url>http://maven.apache.org</url>
+	<packaging>jar</packaging>
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.dianping</groupId>
+			<artifactId>pigeon-common</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.dianping.lion</groupId>
+			<artifactId>lion-client</artifactId>
+		</dependency>
+	</dependencies>
+</project>

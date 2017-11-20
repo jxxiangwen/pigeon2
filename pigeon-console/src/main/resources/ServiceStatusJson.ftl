@@ -1,0 +1,1 @@
+{"status": "${status}","size": "${services?size}","version": "${version}","env": "${environment}","group": "${group}","app": "${appName}","published": "${published}","online": "${online}","error": "${error}","registry": "${registry}"}
