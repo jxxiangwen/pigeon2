@@ -349,6 +349,7 @@ public abstract class AbstractConfigManager implements ConfigManager {
 		return value;
 	}
 
+	// 泳道
 	public String getGroup() {
 		String value = getLocalProperty(KEY_GROUP);
 		if (value == null) {

@@ -124,12 +124,21 @@ public class CuratorRegistry implements Registry {
 		registerPersistentNode(serviceName, group, serviceAddress, weight);
 	}
 
+	/**
+	 * 将服务注册成永久节点
+	 * @param serviceName 服务名称
+	 * @param group 服务组
+	 * @param serviceAddress 服务提供的地址
+	 * @param weight 权重
+	 * @throws RegistryException 注册异常
+	 */
 	void registerPersistentNode(String serviceName, String group, String serviceAddress, int weight)
 			throws RegistryException {
 		String weightPath = Utils.getWeightPath(serviceAddress);
 		String servicePath = Utils.getServicePath(serviceName, group);
 		try {
 			if (client.exists(servicePath, false)) {
+				// 存在获取所有地址列表
 				String addressValue = client.get(servicePath, false);
 				String[] addressArray = addressValue.split(",");
 				List<String> addressList = new ArrayList<String>();

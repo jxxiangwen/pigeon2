@@ -43,6 +43,7 @@ public class ServerConfig {
 		try {
 			String app = configManager.getAppName();
 			if (StringUtils.isNotBlank(app)) {
+				// 端口号在[[6000 - 2000,6000 + 2000]
 				port = LangUtils.hash(app, 6000, 2000);
 			}
 		} catch (Throwable t) {

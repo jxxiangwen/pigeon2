@@ -77,6 +77,7 @@ public abstract class AbstractServer implements Server {
 	@Override
 	public <T> void addService(ProviderConfig<T> providerConfig) {
 		requestProcessor.addService(providerConfig);
+		// 都是空实现
 		doAddService(providerConfig);
 	}
 

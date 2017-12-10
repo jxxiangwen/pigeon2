@@ -162,6 +162,7 @@ public final class ServiceRegistry extends ServiceInitializeListener {
 			providerConfig.setCancelTimeout(cancelTimeout);
 			providerConfigList.add(providerConfig);
 		}
+		// 会在zk注册自己信息
 		ServiceFactory.addServices(providerConfigList);
 	}
 

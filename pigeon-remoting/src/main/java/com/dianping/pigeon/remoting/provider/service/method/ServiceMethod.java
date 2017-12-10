@@ -15,9 +15,13 @@ public class ServiceMethod {
 	private Method method;
 
 	private Object service;
-
+	/**
+	 * 原始参数类
+	 */
 	private Class<?>[] originalParameterClasses;
-
+	/**
+	 * 包装对象参数类 比如int -> Integer
+	 */
 	private Class<?>[] parameterClasses;
 
 	private boolean needCastParameterClasses = false;

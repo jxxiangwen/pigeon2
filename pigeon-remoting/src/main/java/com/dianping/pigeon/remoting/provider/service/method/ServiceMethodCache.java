@@ -18,6 +18,8 @@ public class ServiceMethodCache {
 
 	/**
 	 * 根据方法名和参数个数Map方法集合
+	 * key = methodName
+	 * value = {key = parameterLength value = method}
 	 */
 	private Map<String, Map<Integer, List<ServiceMethod>>> methods = new ConcurrentHashMap<String, Map<Integer, List<ServiceMethod>>>();
 

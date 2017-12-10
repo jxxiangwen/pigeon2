@@ -34,326 +34,343 @@ import com.dianping.pigeon.util.VersionUtils;
 /**
  * @author xiangwu
  * @Sep 30, 2013
- * 
  */
 public final class ServiceProviderFactory {
 
-	private static Logger logger = LoggerLoader.getLogger(ServiceProviderFactory.class);
+    private static Logger logger = LoggerLoader.getLogger(ServiceProviderFactory.class);
 
-	private static ConcurrentHashMap<String, ProviderConfig<?>> serviceCache = new ConcurrentHashMap<String, ProviderConfig<?>>();
+    private static ConcurrentHashMap<String, ProviderConfig<?>> serviceCache = new ConcurrentHashMap<String, ProviderConfig<?>>();
 
-	private static ConfigManager configManager = ExtensionLoader.getExtension(ConfigManager.class);
+    private static ConfigManager configManager = ExtensionLoader.getExtension(ConfigManager.class);
 
-	private static ServiceChangeListener serviceChangeListener = ExtensionLoader
-			.getExtension(ServiceChangeListener.class);
+    private static ServiceChangeListener serviceChangeListener = ExtensionLoader
+            .getExtension(ServiceChangeListener.class);
 
-	private static boolean DEFAULT_NOTIFY_ENABLE = ConfigConstants.ENV_DEV.equalsIgnoreCase(configManager.getEnv()) ? false
-			: Constants.DEFAULT_NOTIFY_ENABLE;
+    private static boolean DEFAULT_NOTIFY_ENABLE = ConfigConstants.ENV_DEV.equalsIgnoreCase(configManager.getEnv()) ? false
+            : Constants.DEFAULT_NOTIFY_ENABLE;
 
-	private static ConcurrentHashMap<String, Integer> serverWeightCache = new ConcurrentHashMap<String, Integer>();
+    private static ConcurrentHashMap<String, Integer> serverWeightCache = new ConcurrentHashMap<String, Integer>();
 
-	private static final int UNPUBLISH_WAITTIME = configManager.getIntValue(Constants.KEY_UNPUBLISH_WAITTIME,
-			Constants.DEFAULT_UNPUBLISH_WAITTIME);
+    private static final int UNPUBLISH_WAITTIME = configManager.getIntValue(Constants.KEY_UNPUBLISH_WAITTIME,
+            Constants.DEFAULT_UNPUBLISH_WAITTIME);
 
-	public static String getServiceUrlWithVersion(String url, String version) {
-		String newUrl = url;
-		if (!StringUtils.isBlank(version)) {
-			newUrl = url + "_" + version;
-		}
-		return newUrl;
-	}
+    public static String getServiceUrlWithVersion(String url, String version) {
+        String newUrl = url;
+        if (!StringUtils.isBlank(version)) {
+            newUrl = url + "_" + version;
+        }
+        return newUrl;
+    }
 
-	public static <T> void addService(ProviderConfig<T> providerConfig) throws Exception {
-		if (logger.isInfoEnabled()) {
-			logger.info("add service:" + providerConfig);
-		}
-		String version = providerConfig.getVersion();
-		String url = providerConfig.getUrl();
-		if (StringUtils.isBlank(version)) {// default version
-			serviceCache.put(url, providerConfig);
-		} else {
-			String urlWithVersion = getServiceUrlWithVersion(url, version);
-			if (serviceCache.containsKey(url)) {
-				serviceCache.put(urlWithVersion, providerConfig);
-				ProviderConfig<?> providerConfigDefault = serviceCache.get(url);
-				String defaultVersion = providerConfigDefault.getVersion();
-				if (!StringUtils.isBlank(defaultVersion)) {
-					if (VersionUtils.compareVersion(defaultVersion, providerConfig.getVersion()) < 0) {
-						// replace existing service with this newer service as
-						// the default provider
-						serviceCache.put(url, providerConfig);
-					}
-				}
-			} else {
-				serviceCache.put(urlWithVersion, providerConfig);
-				// use this service as the default provider
-				serviceCache.put(url, providerConfig);
-			}
-		}
-		T service = providerConfig.getService();
-		if (service instanceof InitializingService) {
-			((InitializingService) service).initialize();
-		}
-		ServiceMethodFactory.init(url);
-	}
+    /**
+     * 添加服务
+     * @param providerConfig 服务提供者
+     * @param <T> 泛型
+     * @throws Exception 异常
+     */
+    public static <T> void addService(ProviderConfig<T> providerConfig) throws Exception {
+        if (logger.isInfoEnabled()) {
+            logger.info("add service:" + providerConfig);
+        }
+        String version = providerConfig.getVersion();
+        String url = providerConfig.getUrl();
+        // 默认版本
+        if (StringUtils.isBlank(version)) {// default version
+            serviceCache.put(url, providerConfig);
+        } else {
+            String urlWithVersion = getServiceUrlWithVersion(url, version);
+            if (serviceCache.containsKey(url)) {
+                serviceCache.put(urlWithVersion, providerConfig);
+                ProviderConfig<?> providerConfigDefault = serviceCache.get(url);
+                String defaultVersion = providerConfigDefault.getVersion();
+                if (!StringUtils.isBlank(defaultVersion)) {
+                    if (VersionUtils.compareVersion(defaultVersion, providerConfig.getVersion()) < 0) {
+                        // replace existing service with this newer service as
+                        // the default provider
+                        serviceCache.put(url, providerConfig);
+                    }
+                }
+            } else {
+                serviceCache.put(urlWithVersion, providerConfig);
+                // use this service as the default provider
+                serviceCache.put(url, providerConfig);
+            }
+        }
+        T service = providerConfig.getService();
+        if (service instanceof InitializingService) {
+            ((InitializingService) service).initialize();
+        }
+        // 缓存提供的方法
+        ServiceMethodFactory.init(url);
+    }
 
-	public static <T> void publishService(ProviderConfig<T> providerConfig) throws RegistryException {
-		publishService(providerConfig, true);
-	}
+    public static <T> void publishService(ProviderConfig<T> providerConfig) throws RegistryException {
+        publishService(providerConfig, true);
+    }
 
-	public static <T> void publishService(ProviderConfig<T> providerConfig, boolean forcePublish)
-			throws RegistryException {
-		String url = providerConfig.getUrl();
-		boolean existingService = false;
-		for (String key : serviceCache.keySet()) {
-			ProviderConfig<?> pc = serviceCache.get(key);
-			if (pc.getUrl().equals(url)) {
-				existingService = true;
-				break;
-			}
-		}
-		if (logger.isInfoEnabled()) {
-			logger.info("try to publish service to registry:" + providerConfig + ", existing service:"
-					+ existingService);
-		}
-		if (existingService) {
-			boolean autoPublishEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
-					Constants.KEY_AUTOPUBLISH_ENABLE, true);
-			if (autoPublishEnable || forcePublish) {
-				List<Server> servers = ProviderBootStrap.getServers(providerConfig);
-				int registerCount = 0;
-				for (Server server : servers) {
-					publishService(server.getRegistryUrl(url), server.getPort(), providerConfig.getServerConfig()
-							.getGroup());
-					registerCount++;
-				}
-				if (registerCount > 0) {
-					boolean isNotify = configManager
-							.getBooleanValue(Constants.KEY_NOTIFY_ENABLE, DEFAULT_NOTIFY_ENABLE);
-					if (isNotify && serviceChangeListener != null) {
-						serviceChangeListener.notifyServicePublished(providerConfig);
-					}
-					StatusContainer.setPhase(Phase.PUBLISHING);
+    public static <T> void publishService(ProviderConfig<T> providerConfig, boolean forcePublish)
+            throws RegistryException {
+        String url = providerConfig.getUrl();
+        boolean existingService = false;
+        for (String key : serviceCache.keySet()) {
+            ProviderConfig<?> pc = serviceCache.get(key);
+            if (pc.getUrl().equals(url)) {
+                existingService = true;
+                break;
+            }
+        }
+        if (logger.isInfoEnabled()) {
+            logger.info("try to publish service to registry:" + providerConfig + ", existing service:"
+                    + existingService);
+        }
+        if (existingService) {
+            boolean autoPublishEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
+                    Constants.KEY_AUTOPUBLISH_ENABLE, true);
+            if (autoPublishEnable || forcePublish) {
+                List<Server> servers = ProviderBootStrap.getServers(providerConfig);
+                int registerCount = 0;
+                for (Server server : servers) {
+                    publishService(server.getRegistryUrl(url), server.getPort(), providerConfig.getServerConfig()
+                            .getGroup());
+                    registerCount++;
+                }
+                if (registerCount > 0) {
+                    boolean isNotify = configManager
+                            .getBooleanValue(Constants.KEY_NOTIFY_ENABLE, DEFAULT_NOTIFY_ENABLE);
+                    if (isNotify && serviceChangeListener != null) {
+                        serviceChangeListener.notifyServicePublished(providerConfig);
+                    }
+                    StatusContainer.setPhase(Phase.PUBLISHING);
 
-					boolean autoRegisterEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
-							Constants.KEY_AUTOREGISTER_ENABLE, true);
-					if (autoRegisterEnable) {
-						ServiceWarmupListener.start();
-					}
+                    boolean autoRegisterEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
+                            Constants.KEY_AUTOREGISTER_ENABLE, true);
+                    if (autoRegisterEnable) {
+                        ServiceWarmupListener.start();
+                    }
 
-					providerConfig.setPublished(true);
-				}
-			} else {
-				logger.info("auto publish is disabled");
-			}
-		}
-	}
+                    providerConfig.setPublished(true);
+                }
+            } else {
+                logger.info("auto publish is disabled");
+            }
+        }
+    }
 
-	public static void publishService(String url) throws RegistryException {
-		if (logger.isInfoEnabled()) {
-			logger.info("publish service:" + url);
-		}
-		ProviderConfig<?> providerConfig = serviceCache.get(url);
-		if (providerConfig != null) {
-			for (String key : serviceCache.keySet()) {
-				ProviderConfig<?> pc = serviceCache.get(key);
-				if (pc.getUrl().equals(url)) {
-					publishService(pc, true);
-				}
-			}
-		}
-	}
+    public static void publishService(String url) throws RegistryException {
+        if (logger.isInfoEnabled()) {
+            logger.info("publish service:" + url);
+        }
+        ProviderConfig<?> providerConfig = serviceCache.get(url);
+        if (providerConfig != null) {
+            for (String key : serviceCache.keySet()) {
+                ProviderConfig<?> pc = serviceCache.get(key);
+                if (pc.getUrl().equals(url)) {
+                    publishService(pc, true);
+                }
+            }
+        }
+    }
 
-	private synchronized static <T> void publishService(String url, int port, String group) throws RegistryException {
-		String ip = configManager.getLocalIp();
-		if (!SecurityUtils.canRegister(ip)) {
-			throw new SecurityException("service registration of " + ip + " is not allowed!");
-		}
-		String serverAddress = ip + ":" + port;
-		int weight = Constants.WEIGHT_INITIAL;
-		boolean autoRegisterEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
-				Constants.KEY_AUTOREGISTER_ENABLE, true);
-		if (!autoRegisterEnable) {
-			weight = 0;
-		}
-		boolean warmupEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
-				Constants.KEY_SERVICEWARMUP_ENABLE, true);
-		if (!warmupEnable) {
-			weight = Constants.WEIGHT_DEFAULT;
-		}
-		if (serverWeightCache.containsKey(serverAddress)) {
-			weight = -1;
-		}
-		if (logger.isInfoEnabled()) {
-			logger.info("publish service to registry, url:" + url + ", port:" + port + ", group:" + group
-					+ ", address:" + serverAddress + ", weight:" + weight);
-		}
-		RegistryManager.getInstance().registerService(url, group, serverAddress, weight);
-		if (weight >= 0) {
-			if (!serverWeightCache.containsKey(serverAddress)) {
-				RegistryManager.getInstance().setServerApp(serverAddress, configManager.getAppName());
-				RegistryManager.getInstance().setServerVersion(serverAddress, VersionUtils.VERSION);
-			}
-			serverWeightCache.put(serverAddress, weight);
-		}
-	}
+    /**
+     * 发布到zk上
+     * @param url 提供的url
+     * @param port 服务端口号
+     * @param group 服务组
+     * @param <T>
+     * @throws RegistryException 注册异常
+     */
+    private synchronized static <T> void publishService(String url, int port, String group) throws RegistryException {
+        String ip = configManager.getLocalIp();
+        if (!SecurityUtils.canRegister(ip)) {
+            throw new SecurityException("service registration of " + ip + " is not allowed!");
+        }
+        String serverAddress = ip + ":" + port;
+        int weight = Constants.WEIGHT_INITIAL;
+        boolean autoRegisterEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
+                Constants.KEY_AUTOREGISTER_ENABLE, true);
+        if (!autoRegisterEnable) {
+            weight = 0;
+        }
+        boolean warmupEnable = ConfigManagerLoader.getConfigManager().getBooleanValue(
+                Constants.KEY_SERVICEWARMUP_ENABLE, true);
+        if (!warmupEnable) {
+            weight = Constants.WEIGHT_DEFAULT;
+        }
+        if (serverWeightCache.containsKey(serverAddress)) {
+            weight = -1;
+        }
+        if (logger.isInfoEnabled()) {
+            logger.info("publish service to registry, url:" + url + ", port:" + port + ", group:" + group
+                    + ", address:" + serverAddress + ", weight:" + weight);
+        }
+        RegistryManager.getInstance().registerService(url, group, serverAddress, weight);
+        if (weight >= 0) {
+            if (!serverWeightCache.containsKey(serverAddress)) {
+                // 在/DP/APP/address 下注册自己名称
+                RegistryManager.getInstance().setServerApp(serverAddress, configManager.getAppName());
+                // 在/DP/VERSION/address 下注册自己版本
+                RegistryManager.getInstance().setServerVersion(serverAddress, VersionUtils.VERSION);
+            }
+            serverWeightCache.put(serverAddress, weight);
+        }
+    }
 
-	public static Map<String, Integer> getServerWeight() {
-		return serverWeightCache;
-	}
+    public static Map<String, Integer> getServerWeight() {
+        return serverWeightCache;
+    }
 
-	public synchronized static void setServerWeight(int weight) throws RegistryException {
-		if (weight < 0 || weight > 100) {
-			throw new IllegalArgumentException("The weight must be within the range of 0 to 100:" + weight);
-		}
-		for (String serverAddress : serverWeightCache.keySet()) {
-			if (logger.isInfoEnabled()) {
-				logger.info("set weight, address:" + serverAddress + ", weight:" + weight);
-			}
-			RegistryManager.getInstance().setServerWeight(serverAddress, weight);
-			if (!serverWeightCache.containsKey(serverAddress)) {
-				RegistryManager.getInstance().setServerApp(serverAddress, configManager.getAppName());
-				RegistryManager.getInstance().setServerVersion(serverAddress, VersionUtils.VERSION);
-			}
-			serverWeightCache.put(serverAddress, weight);
-		}
-		if (weight <= 0) {
-			StatusContainer.setPhase(Phase.OFFLINE);
-		} else {
-			StatusContainer.setPhase(Phase.ONLINE);
-		}
-	}
+    public synchronized static void setServerWeight(int weight) throws RegistryException {
+        if (weight < 0 || weight > 100) {
+            throw new IllegalArgumentException("The weight must be within the range of 0 to 100:" + weight);
+        }
+        for (String serverAddress : serverWeightCache.keySet()) {
+            if (logger.isInfoEnabled()) {
+                logger.info("set weight, address:" + serverAddress + ", weight:" + weight);
+            }
+            RegistryManager.getInstance().setServerWeight(serverAddress, weight);
+            if (!serverWeightCache.containsKey(serverAddress)) {
+                RegistryManager.getInstance().setServerApp(serverAddress, configManager.getAppName());
+                RegistryManager.getInstance().setServerVersion(serverAddress, VersionUtils.VERSION);
+            }
+            serverWeightCache.put(serverAddress, weight);
+        }
+        if (weight <= 0) {
+            StatusContainer.setPhase(Phase.OFFLINE);
+        } else {
+            StatusContainer.setPhase(Phase.ONLINE);
+        }
+    }
 
-	public synchronized static <T> void unpublishService(ProviderConfig<T> providerConfig) throws RegistryException {
-		String url = providerConfig.getUrl();
-		boolean existingService = false;
-		for (String key : serviceCache.keySet()) {
-			ProviderConfig<?> pc = serviceCache.get(key);
-			if (pc.getUrl().equals(url)) {
-				existingService = true;
-				break;
-			}
-		}
-		if (logger.isInfoEnabled()) {
-			logger.info("try to unpublish service from registry:" + providerConfig + ", existing service:"
-					+ existingService);
-		}
-		if (existingService) {
-			StatusContainer.setPhase(Phase.TOUNPUBLISH);
-			List<Server> servers = ProviderBootStrap.getServers(providerConfig);
-			for (Server server : servers) {
-				String serverAddress = configManager.getLocalIp() + ":" + server.getPort();
-				RegistryManager.getInstance().unregisterService(server.getRegistryUrl(providerConfig.getUrl()),
-						providerConfig.getServerConfig().getGroup(), serverAddress);
-				Integer weight = serverWeightCache.remove(serverAddress);
-				if (weight != null) {
-					RegistryManager.getInstance().unregisterServerApp(serverAddress);
-					RegistryManager.getInstance().unregisterServerVersion(serverAddress);
-				}
-			}
-			boolean isNotify = configManager.getBooleanValue(Constants.KEY_NOTIFY_ENABLE, DEFAULT_NOTIFY_ENABLE);
-			if (isNotify && serviceChangeListener != null) {
-				serviceChangeListener.notifyServiceUnpublished(providerConfig);
-			}
-			providerConfig.setPublished(false);
-			if (logger.isInfoEnabled()) {
-				logger.info("unpublished service from registry:" + providerConfig);
-			}
-		}
-	}
+    public synchronized static <T> void unpublishService(ProviderConfig<T> providerConfig) throws RegistryException {
+        String url = providerConfig.getUrl();
+        boolean existingService = false;
+        for (String key : serviceCache.keySet()) {
+            ProviderConfig<?> pc = serviceCache.get(key);
+            if (pc.getUrl().equals(url)) {
+                existingService = true;
+                break;
+            }
+        }
+        if (logger.isInfoEnabled()) {
+            logger.info("try to unpublish service from registry:" + providerConfig + ", existing service:"
+                    + existingService);
+        }
+        if (existingService) {
+            StatusContainer.setPhase(Phase.TOUNPUBLISH);
+            List<Server> servers = ProviderBootStrap.getServers(providerConfig);
+            for (Server server : servers) {
+                String serverAddress = configManager.getLocalIp() + ":" + server.getPort();
+                RegistryManager.getInstance().unregisterService(server.getRegistryUrl(providerConfig.getUrl()),
+                        providerConfig.getServerConfig().getGroup(), serverAddress);
+                Integer weight = serverWeightCache.remove(serverAddress);
+                if (weight != null) {
+                    RegistryManager.getInstance().unregisterServerApp(serverAddress);
+                    RegistryManager.getInstance().unregisterServerVersion(serverAddress);
+                }
+            }
+            boolean isNotify = configManager.getBooleanValue(Constants.KEY_NOTIFY_ENABLE, DEFAULT_NOTIFY_ENABLE);
+            if (isNotify && serviceChangeListener != null) {
+                serviceChangeListener.notifyServiceUnpublished(providerConfig);
+            }
+            providerConfig.setPublished(false);
+            if (logger.isInfoEnabled()) {
+                logger.info("unpublished service from registry:" + providerConfig);
+            }
+        }
+    }
 
-	public static void unpublishService(String url) throws RegistryException {
-		if (logger.isInfoEnabled()) {
-			logger.info("unpublish service:" + url);
-		}
-		ProviderConfig<?> providerConfig = serviceCache.get(url);
-		if (providerConfig != null) {
-			for (String key : serviceCache.keySet()) {
-				ProviderConfig<?> pc = serviceCache.get(key);
-				if (pc.getUrl().equals(url)) {
-					unpublishService(pc);
-				}
-			}
-		}
-	}
+    public static void unpublishService(String url) throws RegistryException {
+        if (logger.isInfoEnabled()) {
+            logger.info("unpublish service:" + url);
+        }
+        ProviderConfig<?> providerConfig = serviceCache.get(url);
+        if (providerConfig != null) {
+            for (String key : serviceCache.keySet()) {
+                ProviderConfig<?> pc = serviceCache.get(key);
+                if (pc.getUrl().equals(url)) {
+                    unpublishService(pc);
+                }
+            }
+        }
+    }
 
-	public static ProviderConfig<?> getServiceConfig(String url) {
-		ProviderConfig<?> providerConfig = serviceCache.get(url);
-		return providerConfig;
-	}
+    public static ProviderConfig<?> getServiceConfig(String url) {
+        ProviderConfig<?> providerConfig = serviceCache.get(url);
+        return providerConfig;
+    }
 
-	public static void removeService(String url) throws RegistryException {
-		if (logger.isInfoEnabled()) {
-			logger.info("remove service:" + url);
-		}
-		List<String> toRemovedUrls = new ArrayList<String>();
-		for (String key : serviceCache.keySet()) {
-			ProviderConfig<?> pc = serviceCache.get(key);
-			if (pc.getUrl().equals(url)) {
-				unpublishService(pc);
-				toRemovedUrls.add(key);
-				Object service = pc.getService();
-				if (service instanceof DisposableService) {
-					try {
-						((DisposableService) service).destroy();
-					} catch (Throwable e) {
-						logger.warn("error while destroy service:" + url + ", caused by " + e.getMessage());
-					}
-				}
-			}
-		}
-		for (String key : toRemovedUrls) {
-			serviceCache.remove(key);
-		}
-	}
+    public static void removeService(String url) throws RegistryException {
+        if (logger.isInfoEnabled()) {
+            logger.info("remove service:" + url);
+        }
+        List<String> toRemovedUrls = new ArrayList<String>();
+        for (String key : serviceCache.keySet()) {
+            ProviderConfig<?> pc = serviceCache.get(key);
+            if (pc.getUrl().equals(url)) {
+                unpublishService(pc);
+                toRemovedUrls.add(key);
+                Object service = pc.getService();
+                if (service instanceof DisposableService) {
+                    try {
+                        ((DisposableService) service).destroy();
+                    } catch (Throwable e) {
+                        logger.warn("error while destroy service:" + url + ", caused by " + e.getMessage());
+                    }
+                }
+            }
+        }
+        for (String key : toRemovedUrls) {
+            serviceCache.remove(key);
+        }
+    }
 
-	public static void removeAllServices() throws RegistryException {
-		if (logger.isInfoEnabled()) {
-			logger.info("remove all services");
-		}
-		unpublishAllServices();
-		serviceCache.clear();
-	}
+    public static void removeAllServices() throws RegistryException {
+        if (logger.isInfoEnabled()) {
+            logger.info("remove all services");
+        }
+        unpublishAllServices();
+        serviceCache.clear();
+    }
 
-	public static void unpublishAllServices() throws RegistryException {
-		if (logger.isInfoEnabled()) {
-			logger.info("unpublish all services");
-		}
-		ServiceWarmupListener.stop();
-		StatusContainer.setPhase(Phase.TOUNPUBLISH);
-		setServerWeight(0);
-		try {
-			Thread.sleep(UNPUBLISH_WAITTIME);
-		} catch (InterruptedException e) {
-		}
-		for (String url : serviceCache.keySet()) {
-			ProviderConfig<?> providerConfig = serviceCache.get(url);
-			if (providerConfig != null) {
-				unpublishService(providerConfig);
-			}
-		}
-		StatusContainer.setPhase(Phase.UNPUBLISHED);
-	}
+    public static void unpublishAllServices() throws RegistryException {
+        if (logger.isInfoEnabled()) {
+            logger.info("unpublish all services");
+        }
+        ServiceWarmupListener.stop();
+        StatusContainer.setPhase(Phase.TOUNPUBLISH);
+        setServerWeight(0);
+        try {
+            Thread.sleep(UNPUBLISH_WAITTIME);
+        } catch (InterruptedException e) {
+        }
+        for (String url : serviceCache.keySet()) {
+            ProviderConfig<?> providerConfig = serviceCache.get(url);
+            if (providerConfig != null) {
+                unpublishService(providerConfig);
+            }
+        }
+        StatusContainer.setPhase(Phase.UNPUBLISHED);
+    }
 
-	public static void publishAllServices() throws RegistryException {
-		publishAllServices(true);
-	}
+    public static void publishAllServices() throws RegistryException {
+        publishAllServices(true);
+    }
 
-	public static void publishAllServices(boolean forcePublish) throws RegistryException {
-		if (logger.isInfoEnabled()) {
-			logger.info("publish all services, " + forcePublish);
-		}
-		for (String url : serviceCache.keySet()) {
-			ProviderConfig<?> providerConfig = serviceCache.get(url);
-			if (providerConfig != null) {
-				publishService(providerConfig, forcePublish);
-			}
-		}
-		StatusContainer.setPhase(Phase.PUBLISHED);
-	}
+    public static void publishAllServices(boolean forcePublish) throws RegistryException {
+        if (logger.isInfoEnabled()) {
+            logger.info("publish all services, " + forcePublish);
+        }
+        for (String url : serviceCache.keySet()) {
+            ProviderConfig<?> providerConfig = serviceCache.get(url);
+            if (providerConfig != null) {
+                publishService(providerConfig, forcePublish);
+            }
+        }
+        StatusContainer.setPhase(Phase.PUBLISHED);
+    }
 
-	public static Map<String, ProviderConfig<?>> getAllServiceProviders() {
-		return serviceCache;
-	}
+    public static Map<String, ProviderConfig<?>> getAllServiceProviders() {
+        return serviceCache;
+    }
 
 }

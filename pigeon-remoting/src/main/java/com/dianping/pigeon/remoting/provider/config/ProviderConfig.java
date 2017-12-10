@@ -19,6 +19,9 @@ public class ProviderConfig<T> {
 	private Class<?> serviceInterface;
 	private String url;
 	private String version;
+	/**
+	 *  具体的提供服务的bean
+	 */
 	private T service;
 	private ServerConfig serverConfig = new ServerConfig();
 	private boolean published = false;
@@ -91,6 +94,7 @@ public class ProviderConfig<T> {
 
 	public ProviderConfig(T service) {
 		this.setService(service);
+		// 获取接口，只会获取第一个
 		this.setServiceInterface(ServiceConfigUtils.getServiceInterface(service.getClass()));
 	}
 

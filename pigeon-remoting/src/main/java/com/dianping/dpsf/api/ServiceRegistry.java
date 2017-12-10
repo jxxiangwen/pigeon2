@@ -31,6 +31,9 @@ import com.dianping.pigeon.remoting.provider.listener.ServiceInitializeListener;
  */
 public class ServiceRegistry extends ServiceInitializeListener {
 
+	/**
+	 * 所有提供的服务
+	 */
 	private Map<String, Object> services;
 	private int port = 20000;
 	private int httpPort = ServerConfig.DEFAULT_HTTP_PORT;
@@ -69,7 +72,7 @@ public class ServiceRegistry extends ServiceInitializeListener {
 			providerConfig.setCancelTimeout(cancelTimeout);
 			providerConfigList.add(providerConfig);
 		}
-
+		// 会发布服务到zk
 		ServiceFactory.addServices(providerConfigList);
 	}
 

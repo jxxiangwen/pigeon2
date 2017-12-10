@@ -14,10 +14,10 @@ import com.dianping.pigeon.log.LoggerLoader;
 import org.apache.logging.log4j.Logger;
 
 /**
- * 
+ *
  * @author xiangwu
  * @Sep 11, 2013
- * 
+ * 使用ServiceLoader在在META-INF/services下文件中加载类相应的实例
  */
 public final class ExtensionLoader {
 
@@ -50,6 +50,7 @@ public final class ExtensionLoader {
 	}
 
 	public static <T> T newExtension(Class<T> clazz) {
+		// 在META-INF/services下面找对应的文件
 		ServiceLoader<T> serviceLoader = ServiceLoader.load(clazz);
 		for (T service : serviceLoader) {
 			return service;

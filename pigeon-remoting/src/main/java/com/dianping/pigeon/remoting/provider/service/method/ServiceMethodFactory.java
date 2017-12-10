@@ -25,7 +25,9 @@ public final class ServiceMethodFactory {
 	private static final Logger logger = LoggerLoader.getLogger(ContextTransferProcessFilter.class);
 
 	private static Map<String, ServiceMethodCache> methods = new ConcurrentHashMap<String, ServiceMethodCache>();
-
+	/**
+	 * 忽略掉Object和Class提供的方法
+	 */
 	private static Set<String> ingoreMethods = new HashSet<String>();
 
 	static {
@@ -73,6 +75,7 @@ public final class ServiceMethodFactory {
 			ProviderConfig<?> providerConfig = services.get(url);
 			if (providerConfig != null) {
 				Object service = providerConfig.getService();
+				// 提供的方法
 				Method[] methodArray = service.getClass().getMethods();
 				serviceMethodCache = new ServiceMethodCache(url, service);
 				for (Method method : methodArray) {
