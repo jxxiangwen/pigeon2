@@ -43,9 +43,13 @@ public final class ProviderBootStrap {
 
 	public static void init() {
 		if (!isInitialized) {
+			// 初始化日志
 			LoggerLoader.init();
+			// 初始化 appenv
 			RegistryConfigLoader.init();
+			// 响应处理器初始化
 			ProviderProcessHandlerFactory.init();
+			// 序列化方式初始化
 			SerializerFactory.init();
 			Monitor monitor = ExtensionLoader.getExtension(Monitor.class);
 			if (monitor != null) {
@@ -58,6 +62,7 @@ public final class ProviderBootStrap {
 			ServerConfig config = new ServerConfig();
 			config.setProtocol(Constants.PROTOCOL_HTTP);
 			ConfigManager configManager = ConfigManagerLoader.getConfigManager();
+			// 初始化线程池策略
 			String poolStrategy = ConfigManagerLoader.getConfigManager().getStringValue(
 					"pigeon.provider.pool.strategy", "shared");
 			if ("server".equals(poolStrategy)) {
@@ -70,6 +75,7 @@ public final class ProviderBootStrap {
 			}
 			RegistryManager.getInstance();
 			List<Server> servers = ExtensionLoader.getExtensionList(Server.class);
+			// 启动服务器
 			for (Server server : servers) {
 				if (!server.isStarted()) {
 					if (server.support(config)) {

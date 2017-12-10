@@ -88,6 +88,9 @@ public final class ProviderProcessHandlerFactory {
 		for (int i = filterList.size() - 1; i >= 0; i--) {
 			final V filter = filterList.get(i);
 			final ServiceInvocationHandler next = last;
+			// 每次新生成一个ServiceInvocationHandler,传递了之前的last
+			// 因此调用最后一个ServiceInvocationHandler时会一层层的往前调用
+			// 把所有过滤器都调用一遍
 			last = new ServiceInvocationHandler() {
 				@SuppressWarnings("unchecked")
 				@Override

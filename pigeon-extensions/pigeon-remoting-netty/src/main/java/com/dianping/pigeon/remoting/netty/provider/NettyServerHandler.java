@@ -58,6 +58,7 @@ public class NettyServerHandler extends SimpleChannelUpstreamHandler {
 		for (InvocationRequest request : messages) {
 			ProviderContext invocationContext = new DefaultProviderContext(request, new NettyChannel(ctx.getChannel()));
 			try {
+				// TODO 为什么返回了Future 没有调用
 				this.server.processRequest(request, invocationContext);
 			} catch (Throwable e) {
 				String msg = "process request failed:" + request;
