@@ -31,6 +31,13 @@ public class InvokerUtils {
 
 	private static AtomicLong requestSequenceMaker = new AtomicLong();
 
+	/**
+	 * 发送请求返回结果
+	 * @param client 客户端
+	 * @param request 请求
+	 * @param callback 回调
+	 * @return 请求结果
+	 */
 	public static InvocationResponse sendRequest(Client client, InvocationRequest request, Callback callback) {
 		if (request.getCallType() == Constants.CALLTYPE_REPLY) {
 			RemoteInvocationBean invocationBean = new RemoteInvocationBean();

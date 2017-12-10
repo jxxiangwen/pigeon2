@@ -276,6 +276,11 @@ public class CuratorRegistry implements Registry {
 		return client;
 	}
 
+	/**
+	 * 获取serverAddress机器提供的app名称
+	 * @param serverAddress 服务地址
+	 * @return app.name
+	 */
 	@Override
 	public String getServerApp(String serverAddress) {
 		String path = Utils.getAppPath(serverAddress);

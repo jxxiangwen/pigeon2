@@ -21,6 +21,13 @@ public class ClusterInvokeFilter extends InvocationInvokeFilter {
 	private static final Logger logger = LoggerLoader.getLogger(ClusterInvokeFilter.class);
 	private MonitorLogger monitorLogger = ExtensionLoader.getExtension(MonitorLogger.class);
 
+	/**
+	 * 根据设置的cluster执行调用
+	 * @param handler
+	 * @param invocationContext 执行上下文
+	 * @return 调用返回
+	 * @throws Throwable
+	 */
 	public InvocationResponse invoke(ServiceInvocationHandler handler, InvokerContext invocationContext)
 			throws Throwable {
 		if (logger.isDebugEnabled()) {

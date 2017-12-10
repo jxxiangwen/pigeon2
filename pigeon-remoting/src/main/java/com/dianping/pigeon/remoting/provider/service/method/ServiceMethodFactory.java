@@ -68,6 +68,11 @@ public final class ServiceMethodFactory {
 		return serviceMethodCache.getMethod(methodName, new ServiceParam(paramClassNames));
 	}
 
+	/**
+	 * 缓存下方法，给调用时查找
+	 * @param url 服务名称
+	 * @return 方法缓存
+	 */
 	public static ServiceMethodCache getServiceMethodCache(String url) {
 		ServiceMethodCache serviceMethodCache = methods.get(url);
 		if (serviceMethodCache == null) {

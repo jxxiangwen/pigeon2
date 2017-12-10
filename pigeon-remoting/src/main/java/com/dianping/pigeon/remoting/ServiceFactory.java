@@ -134,10 +134,12 @@ public class ServiceFactory {
             }
         }
         Object service = null;
+        // 先查找缓存
         service = services.get(invokerConfig);
         if (service == null) {
             try {
                 InvokerBootStrap.startup();
+                // 根据序列化方式生成代理类
                 service = SerializerFactory.getSerializer(invokerConfig.getSerialize()).proxyRequest(invokerConfig);
                 if (StringUtils.isNotBlank(invokerConfig.getLoadbalance())) {
                     LoadBalanceManager.register(invokerConfig.getUrl(), invokerConfig.getGroup(),
@@ -249,7 +251,9 @@ public class ServiceFactory {
                     if (StringUtils.isBlank(providerConfig.getUrl())) {
                         providerConfig.setUrl(getServiceUrl(providerConfig));
                     }
+                    // 记录下提供的服务，同时缓存所有提供的方法
                     ServiceProviderFactory.addService(providerConfig);
+                    // 获取提供出去的服务配置
                     ServerConfig serverConfig = ProviderBootStrap.startup(providerConfig);
                     providerConfig.setServerConfig(serverConfig);
                     // 发布服务

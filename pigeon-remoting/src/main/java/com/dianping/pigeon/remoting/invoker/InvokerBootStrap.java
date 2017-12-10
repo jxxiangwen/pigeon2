@@ -34,19 +34,27 @@ public final class InvokerBootStrap {
 	}
 
 	public static void startup() {
+		//只初始化一次 double check
 		if (!isStartup) {
 			synchronized (InvokerBootStrap.class) {
 				if (!isStartup) {
+					// init appenv
 					RegistryConfigLoader.init();
+					// 初始化调用仓库，包括超时检查处理
 					ServiceInvocationRepository.getInstance().init();
+					// 调用处理器初始化
 					InvokerProcessHandlerFactory.init();
+					// 初始化序列化方式
 					SerializerFactory.init();
+					// 初始化负载均衡
 					LoadBalanceManager.init();
+					// 创建响应处理器
 					ResponseProcessorFactory.selectProcessor();
 					InvokerStatisticsHolder.class.getSimpleName();
 					InvokerCapacityBucket.class.getSimpleName();
 					ServiceStatisticsHolder.class.getSimpleName();
 					CapacityBucket.class.getSimpleName();
+					// 初始化监视器，目前是cat System打点
 					Monitor monitor = ExtensionLoader.getExtension(Monitor.class);
 					if (monitor != null) {
 						monitor.init();
